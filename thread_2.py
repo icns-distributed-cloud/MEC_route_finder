@@ -69,7 +69,7 @@ def MQTTCommunication():
 
     # The below lines will be used to publish the topics
     # publish.single("elevator/starting_floor_number", "3", hostname="163.180.117.195", port=1883)
-    # publish.single("elevator/destination_floor_number", "2", hostname="163.180.117.195", port=1883)
+    # publish.single("elevator/destination_floor_number", "3", hostname="163.180.117.195", port=1883)
 
     # =========================
     # ============== Smartphone
@@ -112,6 +112,87 @@ def MQTTCommunication():
     # publish.single("cart/parking", "0", hostname="163.180.117.195", port=1883)
 
 
+    # =========================
+    # ============== Elevator
+    def on_connect_elevator(client, obj, flags, rc):
+        if rc == 0:
+            print("Elevator connected with result code " + str(rc))
+        else:
+            print("Bad connection returned code = ", rc)
+
+    def on_message_elevator(client, obj, msg):
+
+        print("Elevator new message: " + msg.topic + " " + str(msg.payload))
+
+    def on_publish_elevator(client, obj, mid):
+
+        print("mid: " + str(mid))
+
+    def on_subscribe_elevator(client, obj, mid, granted_qos):
+
+        print("Subscribed: " + str(mid) + " " + str(granted_qos))
+
+    def on_log_elevator(client, obj, level, string):
+
+        print(string)
+
+    elevator = mqtt.Client("elevator")
+    elevator.on_connect = on_connect_elevator
+    elevator.on_message = on_message_elevator
+
+    try:
+        elevator.connect("163.180.117.195", 1883, 60)
+    except:
+        print("ERROR: Could not connect to MQTT")
+
+    elevator.loop_forever()
+
+    # None to publish
+
+    # ###(1)Call dolly
+    # cart.subscribe("cart/status")
+    # mobile.publish("cart/status", "ON", 2)
+    # time.sleep(1)
+    #
+    # ###(2)Get starting room number
+    # cart.subscribe("cart/room/starting_room_number")
+    # mobile.publish("cart/room/starting_room_number", "331", 2)
+    # time.sleep(1)
+    #
+    # ###(3)Call elevator
+    # elevator.subscribe("elevator/status")
+    # cart.publish("elevator/status", "ON", 2)
+    # time.sleep(1)
+    #
+    # ###(4)Enter floor
+    # elevator.subscribe("elevator/starting_floor_number")
+    # cart.publish("elevator/starting_floor_number", "3", 2)
+    # time.sleep(1)
+    #
+    # ###(5) Take document
+    # mobile.subscribe("cart/document_status")
+    # cart.publish("cart/document_status", "TAKEN", 2)
+    # time.sleep(1)
+    #
+    # ###(6) Get destination room number
+    # cart.subscribe("cart/room/destination_room_number")
+    # mobile.publish("cart/room/destination_room_number", "442", 2)
+    # time.sleep(1)
+    #
+    # ###(7) Call elevator
+    # elevator.subscribe("elevator/status")
+    # cart.publish("elevator/status", "ON", 2)
+    # time.sleep(1)
+    #
+    # ###(8) Enter floor
+    # elevator.subscribe("elevator/destination_floor_number")
+    # cart.publish("elevator/destination_floor_number", "4", 2)
+    # time.sleep(1)
+    #
+    # ###(9) Take document
+    # mobile.subscribe("cart/document_status")
+    # cart.publish("cart/document_status", "GIVEN", 2)
+    # time.sleep(1)
 # ---------------------------------------------------------------------------------------------------------------------#
 
 
