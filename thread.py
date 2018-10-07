@@ -1,123 +1,78 @@
-import paho.mqtt.client as mqtt
-import time
 import threading
-import zbar
-import serial
-import threading
+
 import cv2
 import numpy as np
-from matplotlib import pyplot as plt
-from matplotlib import image as image
-from collections import defaultdict
+import paho.mqtt.client as mqtt
+import serial
+import zbar
 from PIL import Image
 
 
 # --------------------------------------------------------MQTT----------------------------------------------------------#
-def MQTTCommunication():
+def on_connect_cart(client, obj, flags, rc):
+    if rc == 0:
+        print("Cart connected with result code " + str(rc))
+        client.subscribe("cart/room/starting_room_number")
+        client.subscribe("cart/room/destination_room_number")
+        client.subscribe("cart/parking")
 
-    # ===================
-    # ============== Cart
-    def on_connect_cart(client, obj, flags, rc):
-        if rc == 0:
-            print("Cart connected with result code " + str(rc))
-            client.subscribe("cart/room/starting_room_number")
-            client.subscribe("cart/room/destination_room_number")
-            client.subscribe("cart/parking")
+    else:
+        print("Bad connection returned code = ", rc)
+
+
+def on_message_cart(client, obj, msg):
+    # print("Cart new message: " + msg.topic + " " + str(msg.payload))
+    roomNumber = str(msg.payload)
+    if msg.topic == "cart/room/starting_room_number":
+        if roomNumber == "331":
+            # pass a value to micom for scenario 1
+            print(roomNumber)
+        else:
+            print("Unknown roomNumber")
+            print(roomNumber)
+
+    elif msg.topic == "cart/room/destination_room_number":
+        if roomNumber == "323-1":
+            # pass a value to micom for scenario 2
+            print(roomNumber)
+        elif roomNumber == "250":
+            # pass a value to micom for scenario 3
+            print(roomNumber)
+        else:
+            print("Unknown roomNumber")
+            print(roomNumber)
+
+    elif msg.topic == "cart/parking":
+        if roomNumber == "0":
+            # pass a vale to micom for parking scenario, which is not yet decided
+            print(roomNumber)
 
         else:
-            print("Bad connection returned code = ", rc)
-
-    def on_message_cart(client, obj, msg):
-
-        # print("Cart new message: " + msg.topic + " " + str(msg.payload))
-        if msg.topic == "cart/room/starting_room_number":
-            floor = str(msg.payload)
-            # add function
-
-        elif msg.topic == "cart/room/destination_room_number":
-            floor = str(msg.payload)
-            # add function
-
-        elif msg.topic == "cart/parking":
-            str(msg.payload)
-        else:
-            print("Unknown topic")
-
-    def on_publish_cart(client, obj, mid):
-
-        print("mid: " + str(mid))
-
-    def on_subscribe_cart(client, obj, mid, granted_qos):
-
-        print("Subscribed: " + str(mid) + " " + str(granted_qos))
-
-    def on_log_cart(client, obj, level, string):
-
-        print(string)
-
-    cart = mqtt.Client("cart")
-    cart.on_connect = on_connect_cart
-    cart.on_message = on_message_cart
-
-    ### Connect to MQTT broker
-    try:
-        cart.connect("163.180.117.195", 1883, 60)
-    except:
-        print("ERROR: Could not connect to MQTT")
-
-    cart.loop_forever()
-
-    # The below lines will be used to publish the topics
-    # publish.single("elevator/starting_floor_number", "3", hostname="163.180.117.195", port=1883)
-    # publish.single("elevator/destination_floor_number", "2", hostname="163.180.117.195", port=1883)
-
-    # =========================
-    # ============== Smartphone
-    def on_connect_mobile(client, obj, flags, rc):
-        if rc == 0:
-            print("Mobile connected with result code " + str(rc))
-        else:
-            print("Bad connection returned code = ", rc)
-
-    def on_message_mobile(client, obj, msg):
-
-        print("Mobile new message: " + msg.topic + " " + str(msg.payload))
-
-    def on_publish_mobile(client, obj, mid):
-
-        print("mid: " + str(mid))
-
-    def on_subscribe_mobile(client, obj, mid, granted_qos):
-
-        print("Subscribed: " + str(mid) + " " + str(granted_qos))
-
-    def on_log_mobile(client, obj, level, string):
-
-        print(string)
-
-    mobile = mqtt.Client("mobile")
-    mobile.on_connect = on_connect_mobile
-    mobile.on_message = on_message_mobile
-    mobile.loop_start()
-
-    try:
-        mobile.connect("163.180.117.195", 1883, 60)
-    except:
-        print("ERROR: Could not connect to MQTT")
-
-    # The below lines will be used to publish the topics
-    # publish.single("mobile/message", "text message", hostname="163.180.117.195", port=1883)
-    # publish.single("cart/room/starting_room_number", "331", hostname="163.180.117.195", port=1883)
-    # publish.single("cart/room/destination_room_number", "323-1", hostname="163.180.117.195", port=1883)
-    # publish.single("cart/parking", "0", hostname="163.180.117.195", port=1883)
+            print("Unknown roomNumber")
+            print(roomNumber)
+    else:
+        print("Unknown topic")
 
 
+def on_publish_cart(client, obj, mid):
+    print("mid: " + str(mid))
+
+
+def on_subscribe_cart(client, obj, mid, granted_qos):
+    print("Subscribed: " + str(mid) + " " + str(granted_qos))
+
+
+def on_log_cart(client, obj, level, string):
+    print(string)
+
+# The below lines will be used to publish the topics
+# publish.single("elevator/starting_floor_number", "3", hostname="163.180.117.195", port=1883)
+# publish.single("elevator/destination_floor_number", "2", hostname="163.180.117.195", port=1883)
 # ---------------------------------------------------------------------------------------------------------------------#
 
 
 # --------------------------------------------Marker detection---------------------------------------------------------#
 def sendqrcode(ret, frame):
-
     """
     A simple function that captures webcam video utilizing OpenCV. The video is then broken down into frames which
     are constantly displayed. The frame is then converted to grayscale for better contrast. Afterwards, the image
@@ -140,7 +95,7 @@ def sendqrcode(ret, frame):
 
     # Begin capturing video. You can modify what video source to use with VideoCapture's argument. It's currently set
     # to be your webcam.
-    #capture = cv2.VideoCapture(0)
+    # capture = cv2.VideoCapture(0)
 
     while True:
         # To quit this program press q.
@@ -148,7 +103,7 @@ def sendqrcode(ret, frame):
             break
 
         # Breaks down the video into frames
-        #ret, frame = capture.read()
+        # ret, frame = capture.read()
 
         # Displays the current frame
         # cv2.imshow('Current', frame)
@@ -171,6 +126,8 @@ def sendqrcode(ret, frame):
             cmd = (decoded.data)
             ser.write(cmd.encode('ascii'))
     ser.close()
+
+
 # ----------------------------------------------------------------------------------------------------------------------#
 
 # ------------------------------------------Hallway detction------------------------------------------------------------#
@@ -203,6 +160,7 @@ class Line():
         # find polynomial co-efficients of averaged x values
         self.best_fit = np.polyfit(ploty, self.bestx, 2)
 
+
 def perspective_transform(img, src, dst):
     h = img.shape[0]
     w = img.shape[1]
@@ -213,6 +171,7 @@ def perspective_transform(img, src, dst):
     warped = cv2.warpPerspective(img, M, (w, h))
 
     return warped, M, Minv
+
 
 def find_lanes_sliding_window(binary_warped, draw_rect=True):
     # Assuming you have created a warped binary image called "binary_warped"
@@ -262,9 +221,9 @@ def find_lanes_sliding_window(binary_warped, draw_rect=True):
             cv2.rectangle(out_img, (win_xright_low, win_y_low), (win_xright_high, win_y_high), (0, 255, 0), 2)
             # Identify the nonzero pixels in x and y within the window
         good_left_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xleft_low) & (
-                    nonzerox < win_xleft_high)).nonzero()[0]
+            nonzerox < win_xleft_high)).nonzero()[0]
         good_right_inds = ((nonzeroy >= win_y_low) & (nonzeroy < win_y_high) & (nonzerox >= win_xright_low) & (
-                    nonzerox < win_xright_high)).nonzero()[0]
+            nonzerox < win_xright_high)).nonzero()[0]
         # Append these indices to the lists
         left_lane_inds.append(good_left_inds)
         right_lane_inds.append(good_right_inds)
@@ -301,16 +260,17 @@ def find_lanes_sliding_window(binary_warped, draw_rect=True):
 
     return left_fitx, right_fitx, left_lane_inds, right_lane_inds, out_img
 
+
 def find_lanes_prev_fit(binary_warped, left_fit, right_fit):
     nonzero = binary_warped.nonzero()
     nonzeroy = np.array(nonzero[0])
     nonzerox = np.array(nonzero[1])
     margin = 100
     left_lane_inds = ((nonzerox > (left_fit[0] * (nonzeroy ** 2) + left_fit[1] * nonzeroy + left_fit[2] - margin)) & (
-                nonzerox < (left_fit[0] * (nonzeroy ** 2) + left_fit[1] * nonzeroy + left_fit[2] + margin)))
+        nonzerox < (left_fit[0] * (nonzeroy ** 2) + left_fit[1] * nonzeroy + left_fit[2] + margin)))
     right_lane_inds = (
-                (nonzerox > (right_fit[0] * (nonzeroy ** 2) + right_fit[1] * nonzeroy + right_fit[2] - margin)) & (
-                    nonzerox < (right_fit[0] * (nonzeroy ** 2) + right_fit[1] * nonzeroy + right_fit[2] + margin)))
+        (nonzerox > (right_fit[0] * (nonzeroy ** 2) + right_fit[1] * nonzeroy + right_fit[2] - margin)) & (
+            nonzerox < (right_fit[0] * (nonzeroy ** 2) + right_fit[1] * nonzeroy + right_fit[2] + margin)))
 
     # Again, extract left and right line pixel positions
     leftx = nonzerox[left_lane_inds]
@@ -330,6 +290,7 @@ def find_lanes_prev_fit(binary_warped, left_fit, right_fit):
     right_fitx = right_fit[0] * ploty ** 2 + right_fit[1] * ploty + right_fit[2]
 
     return left_fitx, right_fitx, left_lane_inds, right_lane_inds
+
 
 def get_radius_curvature_center_offset(img_warped, left_lane_inds, right_lane_inds):
     if left_lane_inds is None or right_lane_inds is None:
@@ -372,6 +333,7 @@ def get_radius_curvature_center_offset(img_warped, left_lane_inds, right_lane_in
     print("lane_center", lane_center)
     return left_curverad, right_curverad, offset
 
+
 def draw_lane(img_undistorted, img_warped, Minv, left_fitx, right_fitx, ploty):
     # Create an image to draw the lines on
     warp_zero = np.zeros_like(img_warped).astype(np.uint8)
@@ -393,6 +355,7 @@ def draw_lane(img_undistorted, img_warped, Minv, left_fitx, right_fitx, ploty):
     # Combine the result with the original image
     result = cv2.addWeighted(img_undistorted, 1, newwarp, 0.3, 0)
     return result
+
 
 def draw_text(img, rad_curvature, offset):
     max_weight = 9;
@@ -426,12 +389,13 @@ def draw_text(img, rad_curvature, offset):
 
     return img
 
+
 def videoLineMeasurement_func(ret, img):
-    #video = cv2.VideoCapture(0)
+    # video = cv2.VideoCapture(0)
 
     while (True):
         # Read frames from the video object
-        #ret, img = video.read()
+        # ret, img = video.read()
 
         img2 = cv2.resize(img, (640, 360))
         # step 1
@@ -498,29 +462,39 @@ def videoLineMeasurement_func(ret, img):
 
     video.release()
     cv2.destroyAllWindows()
-#----------------------------------------------------------------------------------------------------------------------#
+
+
+# ----------------------------------------------------------------------------------------------------------------------#
 
 video = cv2.VideoCapture(0)
 if __name__ == '__main__':
-    # creating thread 
+    cart = mqtt.Client("cart")
+    cart.on_connect = on_connect_cart
+    cart.on_message = on_message_cart
+
+    # Connect to MQTT broker
+    try:
+        cart.connect("163.180.117.195", 1883, 60)
+    except:
+        print("ERROR: Could not connect to MQTT")
+
+    # Read image from USB camera
     ret, img = video.read()
-    t1 = threading.Thread(target=MQTTCommunication)
-    t2 = threading.Thread(target=sendqrcode, args=(ret,img))
-    t3 = threading.Thread(target=videoLineMeasurement_func, args=(ret,img))
+    # Creating thread for hallway detection
+    t1 = threading.Thread(target=sendqrcode, args=(ret, img))
+    # Creating thread for marker detection
+    t2 = threading.Thread(target=videoLineMeasurement_func, args=(ret, img))
 
-    # starting thread 1 
+    # Starting thread 1
     t1.start()
-    # starting thread 2 
+    # Starting thread 2
     t2.start()
-    # starting thread 3
-    t3.start()
 
-    # wait until thread 1 is completely executed 
+    # Wait until thread 1 is completely executed
     t1.join()
-    # wait until thread 2 is completely executed 
+    # Wait until thread 2 is completely executed
     t2.join()
-    # wait until thread 3 is completely executed
-    t3.join()
 
+    cart.loop_forever()
     # Threads completely executed 
     print("All threads is done!")
