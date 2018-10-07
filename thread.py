@@ -336,13 +336,13 @@ def get_radius_curvature_center_offset(img_warped, left_lane_inds, right_lane_in
     # compute offset from center
     left_bottomxm = left_fit_cr[0] * y_eval ** 2 + left_fit_cr[1] * y_eval + left_fit_cr[2]
     right_bottomxm = right_fit_cr[0] * y_eval ** 2 + right_fit_cr[1] * y_eval + right_fit_cr[2]
-    print("leftbottom:{}, rightbottom:{}".format(left_bottomxm, right_bottomxm))
+#    print("leftbottom:{}, rightbottom:{}".format(left_bottomxm, right_bottomxm))
 
     # assume camera is mounted center of car
     lane_center = (right_bottomxm + left_bottomxm) / 2
     vehicle_pos = img_warped.shape[1] / 2
     offset = lane_center - vehicle_pos
-    print("lane_center", lane_center)
+#    print("lane_center", lane_center)
     return left_curverad, right_curverad, offset
 
 
@@ -379,7 +379,7 @@ def draw_text(img, rad_curvature, offset):
     ratio = round(offset_abs / one_unit, 0)
 
     # print (ratio, outfile)
-    print("offset", offset)
+#    print("offset", offset)
 
     direction = ''
     weight_center = 5;
@@ -496,6 +496,9 @@ if __name__ == '__main__':
     except:
         print("ERROR: Could not connect to MQTT")
 
+    print("MQTT client start")
+    cart.loop_start()
+
     lock = threading.Lock()
     # Creating thread for hallway detection
     t1 = threading.Thread(target=sendqrcode, args=[lock])
@@ -512,6 +515,6 @@ if __name__ == '__main__':
     # Wait until thread 2 is completely executed
     t2.join()
 
-    cart.loop_forever()
+    cart.loop_stop()
     # Threads completely executed 
     print("All threads is done!")
