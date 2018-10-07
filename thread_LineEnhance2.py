@@ -6,6 +6,7 @@ import paho.mqtt.client as mqtt
 import serial
 import zbar
 from PIL import Image
+from paho.mqtt import publish
 
 ser = serial.Serial(
     "/dev/ttyS0",
@@ -151,12 +152,15 @@ def sendqrcode(lock):
         for decoded in zbar_image:
             print(decoded.data)
             cmd = (decoded.data)
+            ascii = cmd.encode('ascii')
             serLock.acquire()
             try:
-                ser.write(cmd.encode('ascii'))
+                ser.write(ascii)
             finally:
                 serLock.release()
                 # print("2 unlock")
+            if ascii == 'C':
+                publish.single("elevator/starting_floor_number", "3", hostname="163.180.117.195", port=1883)
         time.sleep(1)
         # To quit this program press q.
         if cv2.waitKey(1) & 0xFF == ord('q'):
