@@ -1,5 +1,5 @@
 import threading
-
+import time
 import cv2
 import numpy as np
 import paho.mqtt.client as mqtt
@@ -72,7 +72,7 @@ def on_log_cart(client, obj, level, string):
 
 
 # --------------------------------------------Marker detection---------------------------------------------------------#
-def sendqrcode(ret, frame):
+def sendqrcode(lock):
     """
     A simple function that captures webcam video utilizing OpenCV. The video is then broken down into frames which
     are constantly displayed. The frame is then converted to grayscale for better contrast. Afterwards, the image
@@ -98,15 +98,21 @@ def sendqrcode(ret, frame):
     # capture = cv2.VideoCapture(0)
 
     while True:
-        # To quit this program press q.
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
+        lock.acquire()
+        try:
+            # Breaks down the video into frames
+            ret, img = video.read()
+            # print("2 lock")
+        finally:
+            lock.release()
+            # print("2 unlock")
 
         # Breaks down the video into frames
         # ret, frame = capture.read()
 
         # Displays the current frame
         # cv2.imshow('Current', frame)
+        frame = cv2.resize(img, (640, 360))
 
         # Converts image to grayscale.
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -125,6 +131,12 @@ def sendqrcode(ret, frame):
             print(decoded.data)
             cmd = (decoded.data)
             ser.write(cmd.encode('ascii'))
+        time.sleep(1)
+
+        # To quit this program press q.
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
     ser.close()
 
 
@@ -390,12 +402,18 @@ def draw_text(img, rad_curvature, offset):
     return img
 
 
-def videoLineMeasurement_func(ret, img):
+def videoLineMeasurement_func(lock):
     # video = cv2.VideoCapture(0)
 
     while (True):
         # Read frames from the video object
-        # ret, img = video.read()
+        lock.acquire()
+        try:
+            ret, img = video.read()
+            # print("3 lock")
+        finally:
+            lock.release()
+            # print("3 unlock")
 
         img2 = cv2.resize(img, (640, 360))
         # step 1
@@ -405,7 +423,7 @@ def videoLineMeasurement_func(ret, img):
         morp = cv2.morphologyEx(mask1, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7)))
         blur = cv2.GaussianBlur(morp, (7, 7), 0)
         edges = cv2.Canny(blur, 100, 300, apertureSize=3)
-        cv2.imshow("Edges", edges)
+        # cv2.imshow("Edges", edges)
 
         # step 2: generate warped image - convert to bird-eyes view, output: warped image, matrix for perspective transform
 
@@ -415,7 +433,7 @@ def videoLineMeasurement_func(ret, img):
         __offset = 0
         dst = np.float32([[0, 0], [h - __offset, 0], [0, w - __offset], [h - __offset, w - __offset]])
         img_warped, M, Minv = perspective_transform(edges, src, dst)
-        cv2.imshow("warped", img_warped)
+        # cv2.imshow("warped", img_warped)
 
         # step 3: detect Line boundary
         l_line = Line()
@@ -455,7 +473,7 @@ def videoLineMeasurement_func(ret, img):
 
         cv2.namedWindow('Window', cv2.WINDOW_AUTOSIZE)
         cv2.setWindowProperty('Window', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-        cv2.imshow("Window", img_result2)
+        # cv2.imshow("Window", img_result2)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
@@ -478,12 +496,11 @@ if __name__ == '__main__':
     except:
         print("ERROR: Could not connect to MQTT")
 
-    # Read image from USB camera
-    ret, img = video.read()
+    lock = threading.Lock()
     # Creating thread for hallway detection
-    t1 = threading.Thread(target=sendqrcode, args=(ret, img))
+    t1 = threading.Thread(target=sendqrcode, args=[lock])
     # Creating thread for marker detection
-    t2 = threading.Thread(target=videoLineMeasurement_func, args=(ret, img))
+    t2 = threading.Thread(target=videoLineMeasurement_func, args=[lock])
 
     # Starting thread 1
     t1.start()
