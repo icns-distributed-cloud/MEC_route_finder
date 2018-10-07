@@ -7,6 +7,19 @@ import serial
 import zbar
 from PIL import Image
 
+ser = serial.Serial(
+    "/dev/ttyS0",
+    baudrate=115200,
+    parity=serial.PARITY_NONE,
+    stopbits=serial.STOPBITS_ONE,
+    bytesize=serial.EIGHTBITS,
+    writeTimeout=1,
+    timeout=10,
+    rtscts=False,
+    dsrdtr=False,
+    xonxoff=False)
+
+serLock = threading.Lock()
 
 # --------------------------------------------------------MQTT----------------------------------------------------------#
 def on_connect_cart(client, obj, flags, rc):
@@ -26,6 +39,12 @@ def on_message_cart(client, obj, msg):
     if msg.topic == "cart/room/starting_room_number":
         if roomNumber == "331":
             # pass a value to micom for scenario 1
+            serLock.acquire()
+            try:
+                ser.write('!')
+            finally:
+                serLock.release()
+                # print("2 unlock")
             print(roomNumber)
         else:
             print("Unknown roomNumber")
@@ -34,9 +53,21 @@ def on_message_cart(client, obj, msg):
     elif msg.topic == "cart/room/destination_room_number":
         if roomNumber == "323-1":
             # pass a value to micom for scenario 2
+            serLock.acquire()
+            try:
+                ser.write('@')
+            finally:
+                serLock.release()
+                # print("2 unlock")
             print(roomNumber)
         elif roomNumber == "250":
             # pass a value to micom for scenario 3
+            serLock.acquire()
+            try:
+                ser.write('#')
+            finally:
+                serLock.release()
+                # print("2 unlock")
             print(roomNumber)
         else:
             print("Unknown roomNumber")
@@ -81,17 +112,7 @@ def sendqrcode(lock):
     press "q".
     :return:
     """
-    ser = serial.Serial(
-        "/dev/ttyS0",
-        baudrate=115200,
-        parity=serial.PARITY_NONE,
-        stopbits=serial.STOPBITS_ONE,
-        bytesize=serial.EIGHTBITS,
-        writeTimeout=1,
-        timeout=10,
-        rtscts=False,
-        dsrdtr=False,
-        xonxoff=False)
+
 
     # Begin capturing video. You can modify what video source to use with VideoCapture's argument. It's currently set
     # to be your webcam.
@@ -130,7 +151,12 @@ def sendqrcode(lock):
         for decoded in zbar_image:
             print(decoded.data)
             cmd = (decoded.data)
-            ser.write(cmd.encode('ascii'))
+            serLock.acquire()
+            try:
+                ser.write(cmd.encode('ascii'))
+            finally:
+                serLock.release()
+                # print("2 unlock")
         time.sleep(1)
         # To quit this program press q.
         if cv2.waitKey(1) & 0xFF == ord('q'):
