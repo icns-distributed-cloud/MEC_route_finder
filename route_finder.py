@@ -2,14 +2,31 @@ import threading
 import time
 import cv2
 import numpy as np
-import paho.mqtt.client as mqtt
 import serial
-import zbar
+import sys, getopt
+import paho.mqtt
 from PIL import Image
+import paho.mqtt.client as mqtt
 from paho.mqtt import publish
+from video import create_capture
+import Adafruit_CharLCD as LCD
+import Adafruit_GPIO as GPIO
+
+lcd_rs = 25
+lcd_en = 24
+lcd_d4 = 23
+lcd_d5 = 17
+lcd_d6 = 18
+lcd_d7 = 22
+lcd_backlight = 2
+# Define LCD column and row size for 16x2 LCD.
+lcd_columns = 16
+lcd_rows = 2
+lcd = LCD.Adafruit_CharLCD(lcd_rs, lcd_en, lcd_d4, lcd_d5, lcd_d6, lcd_d7, lcd_columns, lcd_rows, lcd_backlight)
+
 
 ser = serial.Serial(
-    "/dev/ttyS0",
+    "/dev/ttyAMA0",
     baudrate=115200,
     parity=serial.PARITY_NONE,
     stopbits=serial.STOPBITS_ONE,
@@ -102,74 +119,6 @@ def on_log_cart(client, obj, level, string):
 # publish.single("elevator/destination_floor_number", "2", hostname="163.180.117.195", port=1883)
 # ---------------------------------------------------------------------------------------------------------------------#
 
-
-# --------------------------------------------Marker detection---------------------------------------------------------#
-def sendqrcode(lock):
-    """
-    A simple function that captures webcam video utilizing OpenCV. The video is then broken down into frames which
-    are constantly displayed. The frame is then converted to grayscale for better contrast. Afterwards, the image
-    is transformed into a numpy array using PIL. This is needed to create zbar image. This zbar image is then scanned
-    utilizing zbar's image scanner and will then print the decodeed message of any QR or bar code. To quit the program,
-    press "q".
-    :return:
-    """
-
-
-    # Begin capturing video. You can modify what video source to use with VideoCapture's argument. It's currently set
-    # to be your webcam.
-    # capture = cv2.VideoCapture(0)
-
-    while True:
-        lock.acquire()
-        try:
-            # Breaks down the video into frames
-            ret, img = video.read()
-            # print("2 lock")
-        finally:
-            lock.release()
-            # print("2 unlock")
-
-        # Breaks down the video into frames
-        # ret, frame = capture.read()
-
-        # Displays the current frame
-        # cv2.imshow('Current', frame)
-        frame = cv2.resize(img, (640, 360))
-
-        # Converts image to grayscale.
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-
-        # Uses PIL to convert the grayscale image into a ndary array that ZBar can understand.
-        image = Image.fromarray(gray)
-        width, height = image.size
-        zbar_image = zbar.Image(width, height, 'Y800', image.tobytes())
-
-        # Scans the zbar image.
-        scanner = zbar.ImageScanner()
-        scanner.scan(zbar_image)
-
-        # Prints data from image.
-        for decoded in zbar_image:
-            print(decoded.data)
-            cmd = (decoded.data)
-            ascii = cmd.encode('ascii')
-            serLock.acquire()
-            try:
-                ser.write(ascii)
-            finally:
-                serLock.release()
-                # print("2 unlock")
-            if ascii == 'C':
-                publish.single("elevator/starting_floor_number", "3", hostname="163.180.117.195", port=1883)
-        time.sleep(1)
-        # To quit this program press q.
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
-    ser.close()
-
-
-# ----------------------------------------------------------------------------------------------------------------------#
 
 # ------------------------------------------Hallway detction------------------------------------------------------------#
 class Line():
@@ -361,6 +310,31 @@ def get_radius_curvature_center_offset(img_warped, left_lane_inds, right_lane_in
     return left_curverad, right_curverad, offset
 
 
+def sersend(mode1, mode2, value):
+    val = repr(value)
+
+    ser.write('h'.encode())
+    lcd.message('h')
+    ser.write('h'.encode())
+    lcd.message('h')
+    time.sleep(0.004)
+
+    ser.write(mode1.encode())
+    lcd.message(mode1)
+    ser.write(mode2.encode())
+    lcd.message(mode2)
+    time.sleep(0.004)
+
+    ser.write(val.encode())
+    lcd.message(val)
+    time.sleep(0.004)
+    if (ser.inWaiting() > 0):
+        ser.write('t'.encode())
+        lcd.message('t')
+        ser.write('t'.encode())
+        lcd.message('t')
+
+
 def get_weight(img, rad_curvature, offset):
     
     max_weight = 9
@@ -384,8 +358,16 @@ def get_weight(img, rad_curvature, offset):
         direction = 'left'
         weight_value = weight_center - ratio
         if weight_value <= 0: weight_value = 1
-    
-    
+
+    value = int(weight_value)
+
+    if value != 5:
+        print(value)
+        mode1 = 'p'
+        mode2 = 's'
+        sersend(mode1, mode2, value)
+    else:
+        print(value)
     #font = cv2.FONT_HERSHEY_SIMPLEX
     #txt = 'Weight Value is ' + '{:04.2f}'.format(np.absolute(weight_value)) + ' on the ' + direction + ' direction '
     #cv2.putText(img, txt, (50,100), font, 1, (255,255,255), 2, cv2.LINE_AA)
@@ -402,7 +384,9 @@ def videoLineMeasurement_func(lock):
         finally:
             lock.release()
             # print("3 unlock")
+
         img2 = cv2.resize(img, (640,480))
+
         #step 1
         #Pre-processing: generate binary image
         hsv = cv2.cvtColor(img2, cv2.COLOR_RGB2HSV)
@@ -458,7 +442,7 @@ def videoLineMeasurement_func(lock):
 
         cv2.namedWindow('Window', cv2.WINDOW_AUTOSIZE)
         cv2.setWindowProperty('Window', cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
-    #	cv2.imshow("Window", img_result)
+        cv2.imshow("Window", img_result)
 
 
 
@@ -485,19 +469,13 @@ if __name__ == '__main__':
 
     lock = threading.Lock()
     # Creating thread for hallway detection
-    t1 = threading.Thread(target=sendqrcode, args=[lock])
-    # Creating thread for marker detection
-    t2 = threading.Thread(target=videoLineMeasurement_func, args=[lock])
+    t1 = threading.Thread(target=videoLineMeasurement_func, args=[lock])
 
     # Starting thread 1
     t1.start()
-    # Starting thread 2
-    t2.start()
 
     # Wait until thread 1 is completely executed
     t1.join()
-    # Wait until thread 2 is completely executed
-    t2.join()
 
     cart.loop_stop()
     # Threads completely executed 
