@@ -4,8 +4,8 @@
 ###  - docker swarm init --advertise-addr (ip address) in Manager node  
 ###  - docker swarm join \--token in Worker node  
 ###  - Check setting as 'docker node ls' 
-
-
+ 
+ 
 ## 2. communications between raspberry pi
 ###  - manager node, worker node assign a static IP 
 ###  - manager node -> using eth1 (usb port),  worker node -> using eth0 (Lan port) 
